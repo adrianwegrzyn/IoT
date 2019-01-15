@@ -1,5 +1,5 @@
 import React, {Component} from 'react';
-import {StyleSheet, Text, TouchableOpacity, View, ScrollView} from 'react-native';
+import {StyleSheet, Text, TouchableOpacity, View, ScrollView, RefreshControl, Alert} from 'react-native';
 import {Navigation} from 'react-native-navigation';
 import SQLite from 'react-native-sqlite-storage'
 
@@ -12,6 +12,7 @@ export default class Devices extends Component<Props> {
         super(props);
         this.state = {
             devices: [],
+            refreshing: false,
         }
     }
 
@@ -23,6 +24,14 @@ export default class Devices extends Component<Props> {
 
         this.downloadDataFromDatabase(db);
     }
+
+    _onRefresh = () => {
+        this.setState({refreshing: true});
+        return setTimeout(() => {
+            this.downloadDataFromDatabase(db);
+            this.setState({refreshing: false});
+            }, 100);
+    };
 
 
     goModal = () => {
@@ -48,6 +57,45 @@ export default class Devices extends Component<Props> {
         });
     };
 
+    modificationOptions = (id, name, place, command) => {
+        Alert.alert(
+            'Modyfikacja',
+            'Co chcesz zrobić ?',
+            [
+                {text: 'Cancel', onPress: () => console.log('Cancel Pressed'), style: 'cancel'},
+                {text: 'Modyfikuj', onPress: () => {this.goEditDevice(id, name, place, command); this._onRefresh()}},
+                {text: 'Usuń', onPress: () => {this.deleteDeviceFromDatabase(id); this._onRefresh()}},
+            ],
+            { cancelable: false }
+        )
+    };
+
+    goEditDevice = (id, name, place, command) => {
+        Navigation.showModal({
+            stack: {
+                children: [{
+                    component: {
+                        name: 'AddDevice',
+                        passProps: {
+                            id: id,
+                            name: name,
+                            place: place,
+                            command: command,
+                        },
+                        options: {
+                            topBar: {
+                                title: {
+                                    text: 'Edit device',
+                                    alignment: 'center',
+                                }
+                            }
+                        }
+                    }
+                }]
+            }
+        });
+    };
+
     downloadDataFromDatabase = (db) => {
         db.transaction((tx) => {
             tx.executeSql('SELECT * FROM Devices;', [], (tx, results) => {
@@ -61,13 +109,20 @@ export default class Devices extends Component<Props> {
         });
     };
 
+    deleteDeviceFromDatabase = (id) => {
+        db.transaction((tx) => {
+            tx.executeSql('DELETE FROM Devices WHERE id_device = ?', [id])
+        })
+    };
+
     render() {
         let rowsDevices = [];
         let row = [];
         for (let i = 0; i < this.state.devices.length; i++) {
             row.push(
-                <View key={i}>
-                    <TouchableOpacity style={[styles.button, {backgroundColor: this.state.devices[i].color}]}>
+                <View key={this.state.devices[i].id_device}>
+                    <TouchableOpacity style={[styles.button, {backgroundColor: this.state.devices[i].color}]}
+                                      onLongPress={() => this.modificationOptions(this.state.devices[i].id_device, this.state.devices[i].name, this.state.devices[i].place, this.state.devices[i].command)}>
                         <Text style={{
                             fontSize: 30,
                             color: '#000000',
@@ -108,7 +163,12 @@ export default class Devices extends Component<Props> {
         }
 
         return (
-            <ScrollView style={styles.container}>
+            <ScrollView style={styles.container}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={this.state.refreshing}
+                                onRefresh={this._onRefresh}
+                            />}>
                 {rowsDevices}
             </ScrollView>
         );
