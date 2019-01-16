@@ -12,9 +12,9 @@ export default class Connect extends Component<Props> {
     constructor(props) {
         super(props);
         this.state = {
-            name: '',
-            place: '',
-            command: '',
+            name: this.props.name,
+            place: this.props.place,
+            command: this.props.command,
             color: ''
         }
     }
@@ -29,16 +29,48 @@ export default class Connect extends Component<Props> {
         }else {
             db.transaction((tx) => {
                 tx.executeSql(
-                    'INSERT INTO Devices (id_device, name, place, command, color) VALUES (?, ?, ?, ?, ?);',
-                    ['1', this.state.name, this.state.place, this.state.command, this.state.color]);
+                    'INSERT INTO Devices (name, place, command, color) VALUES (?, ?, ?, ?);',
+                    [ this.state.name, this.state.place, this.state.command, this.state.color]);
             });
             ToastAndroid.show('Dodano urządzenie!', ToastAndroid.SHORT);
             this.cancelModal();
         }
     };
 
+    updateDeviceToDatabase = (db) => {
+        db.transaction((tx) => {
+            tx.executeSql(
+                'UPDATE Devices SET name = ?, place = ?, command = ?, color = ? WHERE id_device = ?;',
+                [this.state.name, this.state.place, this.state.command, this.state.color, this.props.id])
+        })
+        ToastAndroid.show('Edytowano urządzenie!', ToastAndroid.SHORT);
+        this.cancelModal();
+    };
+
 
     render() {
+       let  button = [];
+
+       console.log(this.props.id);
+
+       if( typeof this.props.id !== "number"){
+           button.push(
+               <TouchableOpacity key={1} style={styles.button} onPress={() => this.addDeviceToDatabase(db)}>
+                   <Text>
+                       Save
+                   </Text>
+               </TouchableOpacity>
+           );
+       }else {
+           button.push(
+               <TouchableOpacity key={2} style={styles.button} onPress={() => this.updateDeviceToDatabase(db)}>
+                   <Text>
+                       Edit
+                   </Text>
+               </TouchableOpacity>
+           );
+       }
+
         return (
             <View style={styles.container}>
 
@@ -75,11 +107,7 @@ export default class Connect extends Component<Props> {
                             Cancel
                         </Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.button} onPress={() => this.addDeviceToDatabase(db)}>
-                        <Text>
-                            Save
-                        </Text>
-                    </TouchableOpacity>
+                    {button}
                 </View>
 
             </View>
